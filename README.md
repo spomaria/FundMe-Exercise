@@ -85,6 +85,64 @@ The Smart contract has the following components
 
     ```
 
+3. The withdraw function allows only the owner of the Contract to withdraw the funds. The function uses a modifier `onlyOwner` in the function declaration to ensure that only the owner of the Contract can call this function. The function also resets the array of funders to a zero array and resets the contributions of all addresses to zero.
+    ```
+    function withdraw() public onlyOwner {
+        // Reset all contributions to zero using a for loop
+        for(uint256 indexFunder; indexFunder < funders.length;){
+            address funder = funders[indexFunder];
+            addressToAmountFunded[funder] = 0;
+            // We use unchecked for gas optimization since we know
+            // that our variable cannot overflow
+            unchecked{
+                indexFunder ++;
+            }
+        }
+
+        // Reset the funders array
+        funders = new address[](0);
+
+        // There are three ways to withdraw the funds to the caller of the function
+        // 1. transfer
+        // We make the msg.sender address payable so as to recieve ether
+        // Note that the transfer function reverts automatically when an error is encountered
+        // payable(msg.sender).transfer(address(this).balance);
+
+        // 2. send
+        // Note that the send function does not revert automatically when an error is encountered
+        // So, we use a require keyword to ensure it reverts in the event of any error
+        // bool success = payable(msg.sender).send(address(this).balance);
+        // require(success, "Send Failed");
+
+        // 3. call
+        // Note that the call function returns two variables, a bool and bytes.
+        // However, we are only interested in the bool variable
+        (bool callSuccess, ) = payable(msg.sender).call{value: address(this).balance}("");
+        require(callSuccess, "Call Failed");
+    }
+
+    ```
+4. The receive function enables a user to still send ether to the Contract without calling the `fund` function. The receive function however, routes such users to the `fund` function so that such addresses are added to the array of `funders` accordingly.
+    ```
+    // add the receive function to enable the contract take note of those who try 
+    // to send ether without using the fund function
+    receive() external payable { 
+        // This function will route any user who tries to send some ether to the fund function
+        // Thereby, adding such user to the list of funders
+        fund();
+    }
+    ```
+
+5. The fallback function enables the Contract to revert the transaction of users who attempt to send less than the minimum allowed amount without calling the `fund`. The Smart Contract is able to revert such transactions by routing such calls to the `fund` function.
+    ```
+    fallback() external payable { 
+        // This function will route any user who tries to send some ether to the fund function
+        // In this way, any user that tries to send less than the minimum amount allowed 
+        // and did not call the fund function will equally have their transaction reverted
+        fund();
+    }
+    ```
+
 ## Authors
 Nengak Emmanuel Goltong 
 
